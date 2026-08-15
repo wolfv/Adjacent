@@ -8,3 +8,4 @@ Installed commands:
 - `adjacent-cad`
 - `adjacent-demo`
 - `adjacent-bezier-demo`
+- `adjacent-pelican-demo`

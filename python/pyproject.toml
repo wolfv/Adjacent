@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "adjacent-python"
-version = "0.2.1"
+version = "0.2.2"
 description = "Python bindings and interactive CAD tools for Adjacent"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -16,6 +16,7 @@ adjacent-cad = "adjacent.cad:main"
 adjacent-demo = "adjacent.demo:rectangle_main"
 adjacent-bezier-demo = "adjacent.demo:bezier_main"
 adjacent-font-editor = "adjacent.font_editor:main"
+adjacent-pelican-demo = "adjacent.pelican_demo:main"
 
 [tool.scikit-build]
 cmake.build-type = "Release"

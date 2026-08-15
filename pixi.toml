@@ -31,6 +31,10 @@ description = "Launch the constrained rectangle demo"
 cmd = "adjacent-bezier-demo"
 description = "Launch the cubic Bézier demo"
 
+[tasks.demo-pelican]
+cmd = "adjacent-pelican-demo"
+description = "Launch the draggable constrained pelican bicycle demo"
+
 [tasks.test-python]
 cmd = "python -m unittest discover -s python/tests -v"
 

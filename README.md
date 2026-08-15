@@ -100,8 +100,9 @@ constraints. This frontend uses native press/motion/release events rather than a
 library:
 
 ```bash
-pixi run demo         # constrained rectangle
-pixi run demo-bezier  # draggable cubic Bézier control points
+pixi run demo          # constrained rectangle
+pixi run demo-bezier   # draggable cubic Bézier control points
+pixi run demo-pelican  # constrained pelican riding a bicycle (all nodes draggable)
 ```
 
 The bindings also expose `Sketch.drag_point(point, x, y)` for integration into

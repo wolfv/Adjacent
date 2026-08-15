@@ -6,7 +6,7 @@ preview = ["pixi-build"]
 
 [package]
 name = "adjacent-python"
-version = "0.2.1"
+version = "0.2.2"
 description = "Python bindings and Tk CAD applications for Adjacent"
 license = "GPL-3.0-or-later"
 license-file = "LICENSE"
@@ -51,3 +51,6 @@ cmd = "adjacent-demo"
 
 [tasks.demo-bezier]
 cmd = "adjacent-bezier-demo"
+
+[tasks.demo-pelican]
+cmd = "adjacent-pelican-demo"
