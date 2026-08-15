@@ -1,0 +1,7 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+find_dependency(xtensor)
+
+include("${CMAKE_CURRENT_LIST_DIR}/adjacentTargets.cmake")
+check_required_components(adjacent)

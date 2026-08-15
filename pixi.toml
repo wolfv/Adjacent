@@ -1,0 +1,40 @@
+[workspace]
+name = "adjacent-workspace"
+authors = ["Adjacent contributors"]
+description = "Development workspace for the Adjacent C++ solver and Python CAD tools"
+channels = ["https://prefix.dev/pixi-build-backends", "conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
+preview = ["pixi-build"]
+
+[workspace.dependencies]
+libadjacent = { path = "lib" }
+adjacent-python = { path = "python" }
+python = ">=3.9"
+tk = "*"
+
+[dependencies]
+adjacent-python = { workspace = true }
+
+[tasks.cad]
+cmd = "adjacent-cad"
+description = "Launch the interactive CAD editor"
+
+[tasks.demo]
+cmd = "adjacent-demo"
+description = "Launch the constrained rectangle demo"
+
+[tasks.demo-bezier]
+cmd = "adjacent-bezier-demo"
+description = "Launch the cubic Bézier demo"
+
+[tasks.test-python]
+cmd = "python -c \"import adjacent; p=adjacent.Point(1, 2); assert p.eval() == [1.0, 2.0]\""
+
+[tasks.test-cpp]
+cmd = "pixi run --manifest-path lib/pixi.toml test"
+
+[tasks.test]
+depends-on = ["test-cpp", "test-python"]
+
+[tasks.build-packages]
+cmd = "pixi build --path lib --output-dir dist && pixi build --path python --output-dir dist"

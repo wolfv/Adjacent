@@ -1,0 +1,7 @@
+.pixi/
+build/
+lib/build/
+python/build/
+dist/
+__pycache__/
+*.py[cod]

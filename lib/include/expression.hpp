@@ -1,9 +1,12 @@
 #ifndef ADJACENT_EXPRESSION_HPP
 #define ADJACENT_EXPRESSION_HPP
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <cmath>
+#include <limits>
+#include <stdexcept>
 
 class Expr;
 
@@ -23,12 +26,14 @@ template <class T>
 class Param : public std::enable_shared_from_this<Param<T>>
 {
 private:
-    T m_value;
+    T m_value{};
 
 public:
     std::string m_name;
     bool m_reduceable = true;
     bool m_changed = false;
+    T m_lower_bound = -std::numeric_limits<T>::infinity();
+    T m_upper_bound = std::numeric_limits<T>::infinity();
     std::shared_ptr<Expr> m_expr;
 
     Param() = default;
@@ -41,6 +46,7 @@ public:
     }
 
     void set_value(const T& other);
+    void set_bounds(const T& lower, const T& upper);
     T value() const;
 
     std::shared_ptr<Expr> expr();
@@ -51,10 +57,21 @@ public:
 template <class T>
 void Param<T>::set_value(const T& other)
 {
-    if (other == m_value)
+    const T bounded = std::max(m_lower_bound, std::min(m_upper_bound, other));
+    if (bounded == m_value)
         return;
     m_changed = true;
-    m_value = other;
+    m_value = bounded;
+}
+
+template <class T>
+void Param<T>::set_bounds(const T& lower, const T& upper)
+{
+    if (lower > upper)
+        throw std::invalid_argument("Parameter lower bound exceeds upper bound");
+    m_lower_bound = lower;
+    m_upper_bound = upper;
+    set_value(m_value);
 }
 
 template <class T>
@@ -82,8 +99,8 @@ Param<T>::Param(const std::string& name, bool reduceable /* = true */)
 
 template <class T>
 Param<T>::Param(const std::string& name, double value)
-    : m_name(name)
-    , m_value(value)
+    : m_value(value)
+    , m_name(name)
 {
 }
 
@@ -131,7 +148,11 @@ public:
     std::shared_ptr<Param<double>> param;
     double value;
 
-    Expr() = default;
+    Expr()
+        : op(Op::Undefined)
+        , value(0.0)
+    {
+    }
 
     // Todo automatic conversion from double?!
     Expr(double value);
@@ -147,7 +168,7 @@ public:
 
     std::shared_ptr<Expr> drag(const std::shared_ptr<Expr>& to)
     {
-        return std::make_shared<Expr>(Op::Drag, std::shared_ptr<Expr>(this), to);
+        return std::make_shared<Expr>(Op::Drag, shared_from_this(), to);
     }
 
     bool is_zero_const() const;
@@ -213,7 +234,6 @@ std::shared_ptr<Expr> cfres(const std::shared_ptr<Expr>& x);
 // https://www.hindawi.com/journals/mpe/2018/4031793/
 inline double c_fres(double x)
 {
-    double PI = M_PI;
     double ax = std::abs(x);
     double ax2 = ax * ax;
     double ax3 = ax2 * ax;
@@ -237,7 +257,6 @@ inline double c_fres(double x)
 
 inline double s_fres(double x)
 {
-    double PI = M_PI;
     double ax = std::abs(x);
     double ax2 = ax * ax;
     double ax3 = ax2 * ax;

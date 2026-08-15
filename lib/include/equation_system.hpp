@@ -24,7 +24,7 @@ class EquationSystem
 public:
     bool is_dirty = true;
     int max_steps = 20;
-    int drag_steps = 3;
+    int drag_steps = 10;
     bool revert_when_not_converged = true;
 
     std::string stats;

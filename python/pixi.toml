@@ -1,0 +1,48 @@
+[workspace]
+name = "adjacent-python"
+channels = ["https://prefix.dev/pixi-build-backends", "conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
+preview = ["pixi-build"]
+
+[package]
+name = "adjacent-python"
+version = "0.2.0"
+description = "Python bindings and Tk CAD applications for Adjacent"
+license = "GPL-3.0-or-later"
+license-file = "LICENSE"
+
+[package.build.backend]
+name = "pixi-build-python"
+version = "0.8.*"
+channels = ["https://prefix.dev/pixi-build-backends", "conda-forge"]
+
+[package.build.config]
+compilers = ["cxx"]
+noarch = false
+
+[package.host-dependencies]
+python = ">=3.9"
+scikit-build-core = ">=0.10"
+pybind11 = ">=2.13"
+libadjacent = { path = "../lib" }
+
+[package.run-dependencies]
+libadjacent = { path = "../lib" }
+tk = "*"
+
+[dependencies]
+adjacent-python = { path = "." }
+python = ">=3.9"
+tk = "*"
+
+[tasks.test]
+cmd = "python -c \"import adjacent; p=adjacent.Point(1, 2); assert p.eval() == [1.0, 2.0]\""
+
+[tasks.cad]
+cmd = "adjacent-cad"
+
+[tasks.demo]
+cmd = "adjacent-demo"
+
+[tasks.demo-bezier]
+cmd = "adjacent-bezier-demo"

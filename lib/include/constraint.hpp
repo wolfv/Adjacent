@@ -18,7 +18,14 @@ enum CONSTRAINT_TYPE
     HV,
     Angle,
     Diameter,
-    Tangent
+    Tangent,
+    Perpendicular,
+    EqualLength,
+    EqualRadius,
+    FixedPoint,
+    Midpoint,
+    Concentric,
+    PointLineDistance
 };
 
 class Constraint;
@@ -36,6 +43,7 @@ public:
         : type(type)
     {
     }
+    virtual ~Constraint() = default;
 
     virtual std::vector<ParamPtr> parameters() = 0;
     virtual std::vector<ExprPtr> equations() = 0;
@@ -117,8 +125,8 @@ public:
         reference = true;
         entities.push_back(point.get());
         entities.push_back(on.get());
-        set_value(0.51);
-        satisfy();
+        value->set_bounds(0.0, 1.0);
+        set_value(0.5);
     }
 
     bool on_satisfy()
@@ -184,14 +192,13 @@ public:
     ExprPtr angle;
     std::shared_ptr<Entity> l0, l1;
 
-    ParallelConstraint(std::shared_ptr<LineE>& l0, std::shared_ptr<LineE>& l1)
+    ParallelConstraint(const std::shared_ptr<LineE>& l0, const std::shared_ptr<LineE>& l1)
         : Constraint(CONSTRAINT_TYPE::Parallel)
         , l0(l0)
         , l1(l1)
     {
         entities.push_back(l0.get());
         entities.push_back(l1.get());
-        choose_best_option();
     }
 
     std::vector<ExprPtr> equations()
@@ -203,43 +210,9 @@ public:
         ExpVector d1 = *l1->point_on(zero) - *l1->point_on(one);
         // ExprPtr angle = sketch.is3d ? ConstraintExp.angle3d(d0, d1) : ConstraintExp.angle2d(d0,
         // d1);
-        if (!angle)
-        {
-            angle = angle2d(d0, d1);
-        }
-        switch (option_)
-        {
-            case Option::Codirected:
-                return { angle };
-            case Option::Antidirected:
-                return { abs(angle) - PI_E };
-        }
-        throw std::runtime_error("unhandled option");
-    }
-
-    void choose_best_option()
-    {
-        double min_value = -1.0;
-        int best_option = 0;
-
-        for (int i = 0; i < 2; i++)
-        {
-            auto exprs = equations();
-            double cur_value = 0.0;
-            for (const auto& el : exprs)
-            {
-                cur_value += abs(el->eval());
-            }
-            std::clog << "check option " << i << " (min: " << min_value << ", cur: " << cur_value
-                      << ")\n";
-
-            if (min_value < 0.0 || cur_value < min_value)
-            {
-                min_value = cur_value;
-                best_option = i;
-                option_ = (Option) i;
-            }
-        }
+        // Collinearity is direction independent and avoids the discontinuity of
+        // atan2/abs at +/-pi.
+        return { d0.x * d1.y - d0.y * d1.x };
     }
 
     std::vector<ParamPtr> parameters()
@@ -258,7 +231,6 @@ public:
         , entity(e)
     {
         entities.push_back(e.get());
-        satisfy();  // does this make sense here?
         value->set_value(l);
     }
 
@@ -273,7 +245,7 @@ class PointsCoincidentConstraint : public Constraint
 public:
     std::shared_ptr<PointE> p0, p1;
 
-    PointsCoincidentConstraint(std::shared_ptr<PointE>& p0, std::shared_ptr<PointE>& p1)
+    PointsCoincidentConstraint(const std::shared_ptr<PointE>& p0, const std::shared_ptr<PointE>& p1)
         : Constraint(CONSTRAINT_TYPE::PointsCoincident)
         , p0(p0)
         , p1(p1)
@@ -319,7 +291,6 @@ public:
     {
         entities.push_back(p0.get());
         entities.push_back(p1.get());
-        satisfy();
     }
 
     PointsDistanceConstraint(const std::shared_ptr<LineE>& line, double d)
@@ -328,7 +299,6 @@ public:
         , p1(nullptr)
     {
         entities.push_back(line.get());
-        satisfy();
     }
 
     std::vector<ExprPtr> equations()
@@ -391,11 +361,11 @@ public:
         ExprPtr exp;
         switch (orientation)
         {
-            case HVOrientation::OX:
-                exp = p0->x->expr() - p1->x->expr();
-                break;
-            case HVOrientation::OY:
+            case HVOrientation::OX: // segment parallel to the x axis
                 exp = p0->y->expr() - p1->y->expr();
+                break;
+            case HVOrientation::OY: // segment parallel to the y axis
+                exp = p0->x->expr() - p1->x->expr();
                 break;
                 // case HVOrientation::OZ: exp = p0->z->expr() - p1->z->expr(); break;
         }
@@ -418,12 +388,12 @@ T sgn(const T& x)
 class AngleConstraint : public ValueConstraint
 {
 public:
-    bool supplementary = false;
+    bool supplementary = false; // retained for source compatibility
     // AngleConstraint(PointE)
 
     // AngleConstraint(Arc);
 
-    AngleConstraint(std::shared_ptr<LineE>& l0, std::shared_ptr<LineE>& l1, double angle)
+    AngleConstraint(const std::shared_ptr<LineE>& l0, const std::shared_ptr<LineE>& l1, double angle)
         : ValueConstraint(CONSTRAINT_TYPE::Angle, angle)
     {
         entities.push_back(l0.get());
@@ -434,62 +404,18 @@ public:
 
     std::vector<ExprPtr> equations()
     {
-        std::array<ExpVector, 4> pts;
-        if (std::abs(value->value()) > M_PI_2)
-        {
-            // If we have values > pi/2 it's better to flip the computation of the angle
-            // so that atan2 doesn't go too high (becomes unstable for solving at around 0.92 * PI)
-            // atan2 is only defined between 0 and +/- PI
-            // so we flip the line segment, and use the negative angle instead.
-            supplementary = true;
-            value->set_value(-(sgn(value->value()) * M_PI - value->value()));
-            pts = get_points(true);
-        }
-        else
-        {
-            // value->set_value(value->value());
-            pts = get_points(false);
-        }
-
-        auto d0 = pts[0] - pts[1];
+        auto pts = get_points();
+        auto d0 = pts[1] - pts[0];
         auto d1 = pts[3] - pts[2];
-        // bool angle360 = is_arc?
-        bool angle360 = false;
-        // Exp angle = sketch.is3d
-        ExprPtr angle = angle2d(d0, d1, angle360);
-        return { angle - value->expr() };
+        return { angle2d(d0, d1) - value->expr() };
     }
 
-    std::array<ExpVector, 4> get_points(bool swap)
+    std::array<ExpVector, 4> get_points()
     {
-        std::array<ExpVector, 4> res;
-
-        if (false)  // points
-        {
-            for (int i = 0; i < 4; ++i)
-            {
-                res[i] = dynamic_cast<PointE*>(entities[i])->expr();
-            }
-        }
-        else if (true)  // line
-        {
-            LineE* l0 = dynamic_cast<LineE*>(entities[0]);
-            res[0] = *l0->point_on(zero);
-            res[1] = *l0->point_on(one);
-            LineE* l1 = dynamic_cast<LineE*>(entities[1]);
-            res[2] = *l1->point_on(zero);
-            res[3] = *l1->point_on(one);
-            if (supplementary)
-            {
-                // Swap direction of l1
-                std::swap(res[2], res[3]);
-            }
-        }
-        else if (false)  // Arc
-        {
-        }
-
-        return res;
+        auto* l0 = dynamic_cast<LineE*>(entities[0]);
+        auto* l1 = dynamic_cast<LineE*>(entities[1]);
+        return { *l0->point_on(zero), *l0->point_on(one), *l1->point_on(zero),
+                 *l1->point_on(one) };
     }
 };
 
@@ -499,7 +425,7 @@ public:
     // bool showAsRadius = false;
     EntityPtr e;
 
-    DiameterConstraint(EntityPtr& entity, double diameter)
+    DiameterConstraint(const EntityPtr& entity, double diameter)
         : ValueConstraint(CONSTRAINT_TYPE::Diameter, diameter)
         , e(entity)
     {
@@ -515,180 +441,169 @@ public:
     }
 };
 
+class PerpendicularConstraint : public Constraint
+{
+public:
+    std::shared_ptr<LineE> l0, l1;
+    PerpendicularConstraint(const std::shared_ptr<LineE>& a, const std::shared_ptr<LineE>& b)
+        : Constraint(CONSTRAINT_TYPE::Perpendicular), l0(a), l1(b)
+    {
+        entities = { a.get(), b.get() };
+    }
+    std::vector<ParamPtr> parameters() override { return {}; }
+    std::vector<ExprPtr> equations() override
+    {
+        auto a = l0->target().expr() - l0->source().expr();
+        auto b = l1->target().expr() - l1->source().expr();
+        return { dot(a, b) };
+    }
+};
+
+class EqualLengthConstraint : public Constraint
+{
+public:
+    EntityPtr a, b;
+    EqualLengthConstraint(const EntityPtr& a, const EntityPtr& b)
+        : Constraint(CONSTRAINT_TYPE::EqualLength), a(a), b(b)
+    {
+        entities = { a.get(), b.get() };
+    }
+    std::vector<ParamPtr> parameters() override { return {}; }
+    std::vector<ExprPtr> equations() override { return { a->length() - b->length() }; }
+};
+
+class EqualRadiusConstraint : public Constraint
+{
+public:
+    EntityPtr a, b;
+    EqualRadiusConstraint(const EntityPtr& a, const EntityPtr& b)
+        : Constraint(CONSTRAINT_TYPE::EqualRadius), a(a), b(b)
+    {
+        entities = { a.get(), b.get() };
+    }
+    std::vector<ParamPtr> parameters() override { return {}; }
+    std::vector<ExprPtr> equations() override { return { a->radius() - b->radius() }; }
+};
+
+class FixedPointConstraint : public Constraint
+{
+public:
+    std::shared_ptr<PointE> point;
+    double fixed_x, fixed_y;
+    explicit FixedPointConstraint(const std::shared_ptr<PointE>& point)
+        : Constraint(CONSTRAINT_TYPE::FixedPoint), point(point), fixed_x(point->x->value()),
+          fixed_y(point->y->value())
+    {
+        entities = { point.get() };
+    }
+    FixedPointConstraint(const std::shared_ptr<PointE>& point, double x, double y)
+        : Constraint(CONSTRAINT_TYPE::FixedPoint), point(point), fixed_x(x), fixed_y(y)
+    {
+        entities = { point.get() };
+    }
+    std::vector<ParamPtr> parameters() override { return {}; }
+    std::vector<ExprPtr> equations() override
+    {
+        return { point->x->expr() - expr(fixed_x), point->y->expr() - expr(fixed_y) };
+    }
+};
+
+class MidpointConstraint : public Constraint
+{
+public:
+    std::shared_ptr<PointE> point;
+    std::shared_ptr<LineE> line;
+    MidpointConstraint(const std::shared_ptr<PointE>& point, const std::shared_ptr<LineE>& line)
+        : Constraint(CONSTRAINT_TYPE::Midpoint), point(point), line(line)
+    {
+        entities = { point.get(), line.get() };
+    }
+    std::vector<ParamPtr> parameters() override { return {}; }
+    std::vector<ExprPtr> equations() override
+    {
+        auto delta = point->expr() - *line->point_on(expr(0.5));
+        return { delta.x, delta.y };
+    }
+};
+
+class ConcentricConstraint : public Constraint
+{
+public:
+    EntityPtr a, b;
+    ConcentricConstraint(const EntityPtr& a, const EntityPtr& b)
+        : Constraint(CONSTRAINT_TYPE::Concentric), a(a), b(b)
+    {
+        entities = { a.get(), b.get() };
+    }
+    std::vector<ParamPtr> parameters() override { return {}; }
+    std::vector<ExprPtr> equations() override
+    {
+        auto center_of = [](const EntityPtr& e) -> PointE& {
+            if (auto circle = dynamic_cast<CircleE*>(e.get())) return circle->center();
+            if (auto arc = dynamic_cast<ArcE*>(e.get())) return arc->center();
+            throw std::invalid_argument("Concentric requires circles or arcs");
+        };
+        auto delta = center_of(a).expr() - center_of(b).expr();
+        return { delta.x, delta.y };
+    }
+};
+
+class PointLineDistanceConstraint : public ValueConstraint
+{
+public:
+    std::shared_ptr<PointE> point;
+    std::shared_ptr<LineE> line;
+    double side;
+    PointLineDistanceConstraint(const std::shared_ptr<PointE>& point,
+                                const std::shared_ptr<LineE>& line, double distance)
+        : ValueConstraint(CONSTRAINT_TYPE::PointLineDistance, distance), point(point), line(line),
+          side(1.0)
+    {
+        if (distance < 0.0) throw std::invalid_argument("Distance must be non-negative");
+        const double dx = line->target().x->value() - line->source().x->value();
+        const double dy = line->target().y->value() - line->source().y->value();
+        const double qx = point->x->value() - line->source().x->value();
+        const double qy = point->y->value() - line->source().y->value();
+        if (dx * qy - dy * qx < 0.0) side = -1.0;
+        entities = { point.get(), line.get() };
+    }
+    std::vector<ExprPtr> equations() override
+    {
+        auto d = line->target().expr() - line->source().expr();
+        auto q = point->expr() - line->source().expr();
+        auto area = d.x * q.y - d.y * q.x;
+        return { area - expr(side) * value->expr() * sqrt(sqr(d.x) + sqr(d.y)) };
+    }
+};
+
 class TangentConstraint : public Constraint
 {
 public:
-    enum Option
-    {
-        Codirected,
-        Antidirected
-    };
+    ParamPtr t0 = param("tangent_circle_t", 0.0);
+    ParamPtr t1 = param("tangent_line_t", 0.5);
 
-    Option _option = Option::Codirected;
-
-    void choose_best_option()
-    {
-        double min_value = -1.0;
-        int best_option = 0;
-
-        for (int i = 0; i < 2; i++)
-        {
-            auto exprs = equations();
-            double cur_value = 0.0;
-            for (const auto& el : exprs)
-            {
-                cur_value += abs(el->eval());
-            }
-            std::clog << "check option " << i << " (min: " << min_value << ", cur: " << cur_value
-                      << ")\n";
-
-            if (min_value < 0.0 || cur_value < min_value)
-            {
-                min_value = cur_value;
-                best_option = i;
-                _option = (Option) i;
-            }
-        }
-    }
-
-    ParamPtr t0 = param("t0", 0.0);
-    ParamPtr t1 = param("t1", 0.0);
-
-    bool add_angle = true;
-
-    TangentConstraint(std::shared_ptr<CircleE>& c, std::shared_ptr<LineE>& l)
+    TangentConstraint(const EntityPtr& first, const EntityPtr& second)
         : Constraint(CONSTRAINT_TYPE::Tangent)
     {
-        // make sure that e1 is circular entity?
-        entities.push_back(c.get());
-        entities.push_back(l.get());
-
-        choose_best_option();
+        if (!first->tangent_at(zero) || !second->tangent_at(zero))
+            throw std::invalid_argument("Tangent requires two curve entities");
+        entities = { first.get(), second.get() };
+        t0->set_bounds(0.0, 1.0);
+        t1->set_bounds(0.0, 1.0);
     }
 
-    bool is_coincident(double& tv0, double& tv1, ExprPtr& c, ParamPtr& p)
+    std::vector<ParamPtr> parameters() override { return { t0, t1 }; }
+
+    std::vector<ExprPtr> equations() override
     {
-        auto* l0 = entities[0];
-        auto* l1 = entities[1];
-
-        auto* s0 = dynamic_cast<SegmentaryEntity*>(l0);
-        auto* s1 = dynamic_cast<SegmentaryEntity*>(l1);
-
-        // For the is_coincident_with_curve query we need to have access to all constraints to query
-        // wether there is a coincident with ... constraint already
-
-        // if(s0 != nullptr && s1 != nullptr) {
-        //    if (s0->begin->IsCoincidentWith(s1.begin))   { tv0 = 0.0; tv1 = 0.0; return true; }
-        //     if (s0.begin.IsCoincidentWith(s1.end))      { tv0 = 0.0; tv1 = 1.0; return true; }
-        //     if (s0.end.IsCoincidentWith(s1.begin))      { tv0 = 1.0; tv1 = 0.0; return true; }
-        //     if (s0.end.IsCoincidentWith(s1.end))        { tv0 = 1.0; tv1 = 1.0; return true; }
-        // }
-        // if(s0 != nullptr)
-        // {
-        //     PointOn pOn = null;
-        //     if (s0.source().IsCoincidentWithCurve(l1, ref pOn))
-        //     {
-        //         tv0 = 0.0;
-        //         p = t1;
-        //         c = new Exp(t1) - pOn.GetValueParam();
-        //         return true;
-        //     }
-        //     if (s0.end.IsCoincidentWithCurve(l1, ref pOn))
-        //     {
-        //         tv0 = 1.0;
-        //         p = t1;
-        //         c = new Exp(t1) - pOn.GetValueParam();
-        //         return true;
-        //     }
-        // }
-        // if(s1 != null) {
-        //     PointOn pOn = null;
-        //     if(s1.begin.IsCoincidentWithCurve(l0, ref pOn)) { p = t0; c = new Exp(t0) -
-        //     pOn.GetValueParam(); tv1 = 0.0; return true; } if(s1.end.IsCoincidentWithCurve(l0,
-        //     ref pOn))   { p = t0; c = new Exp(t0) - pOn.GetValueParam(); tv1 = 1.0; return true;
-        //     }
-        // }
-        return false;
-    }
-
-    std::vector<ParamPtr> parameters()
-    {
-        double tv0 = 0.0;
-        double tv1 = 0.0;
-        ExprPtr c = nullptr;
-        ParamPtr p = nullptr;
-
-        if (is_coincident(tv0, tv1, c, p) == false)
-        {
-            return { t0, t1 };
-        }
-        else
-        {
-            if (p != nullptr)
-            {
-                return { p };
-            }
-        }
-        return {};
-    }
-
-    std::vector<ExprPtr> equations()
-    {
-        // select point on circle (t0) and on line (t1),
-        // force them to overlap and have equal tangent angle
-
-        std::vector<ExprPtr> res;
-        auto* l0 = entities[0];
-        auto* l1 = entities[1];
-
-        ExpVectorPtr dir0 = l0->tangent_at(t0->expr());
-        ExpVectorPtr dir1 = l1->tangent_at(t1->expr());
-
-        // dir0 = l0.plane.DirFromPlane(dir0);
-        // dir0 = sketch.plane.DirToPlane(dir0);
-
-        // dir1 = l1.plane.DirFromPlane(dir1);
-        // dir1 = sketch.plane.DirToPlane(dir1);
-
-        if (add_angle)
-        {
-            // Exp angle = sketch.is3d ? ConstraintExp.angle3d(dir0, dir1) :
-            // ConstraintExp.angle2d(dir0, dir1);
-            auto angle = angle2d(*dir0, *dir1);
-            switch (_option)
-            {
-                case Option::Codirected:
-                    res.push_back(angle);
-                    break;
-                case Option::Antidirected:
-                    res.push_back(abs(angle) - PI_E);
-                    break;
-            }
-        }
-
-        double tv0 = t0->value();
-        double tv1 = t1->value();
-
-        ExprPtr c;
-        ParamPtr p;
-
-        // if we already have a coincident constraint on P and the Curve C:
-        if (is_coincident(tv0, tv1, c, p))
-        {
-            t0->set_value(tv0);
-            t1->set_value(tv1);
-            if (c != nullptr)
-                res.push_back(c);
-        }
-        else
-        {
-            // var eq = l1.PointOnInPlane(t1, sketch.plane) - l0.PointOnInPlane(t0, sketch.plane);
-            auto eq = *l1->point_on(t1->expr()) - *l0->point_on(t0->expr());
-            res.push_back(eq.x);
-            res.push_back(eq.y);
-            // if(sketch.is3d) res.push_back(eq.z);
-        }
-        return res;
+        auto* circle = entities[0];
+        auto* line = entities[1];
+        auto circle_tangent = circle->tangent_at(t0->expr());
+        auto line_tangent = line->tangent_at(t1->expr());
+        auto coincidence = *line->point_on(t1->expr()) - *circle->point_on(t0->expr());
+        return { circle_tangent->x * line_tangent->y
+                     - circle_tangent->y * line_tangent->x,
+                 coincidence.x, coincidence.y };
     }
 };
 
@@ -700,7 +615,7 @@ public:
     bool entitiesChanged = true;
     bool loopsChanged = true;
     bool topologyChanged = true;
-    bool supressSolve;
+    bool supressSolve = false;
     EquationSystem sys;
 
     std::set<EntityPtr> entities;
@@ -755,22 +670,61 @@ public:
         return topologyChanged;
     }
 
-    void update()
+    bool remove_entity(const EntityPtr& e)
     {
-        if (is_constraints_changed() || is_entities_changed())
+        if (entities.erase(e) == 0) return false;
+        mark_dirty(true, false, true, true);
+        return true;
+    }
+
+    bool remove_constraint(const ConstraintPtr& c)
+    {
+        if (constraints.erase(c) == 0) return false;
+        mark_dirty(c->type == PointsCoincident, true, false, false);
+        constraintsTopologyChanged = true;
+        return true;
+    }
+
+    SolveResult update()
+    {
+        const bool rebuild = constraintsTopologyChanged || constraintsChanged || entitiesChanged
+                             || topologyChanged;
+        if (rebuild)
         {
             supressSolve = false;
-        }
-        if (is_topology_changed())
-        {
             sys.clear();
             generate_equations(sys);
         }
-        auto res = (!supressSolve || sys.has_dragged()) ? sys.solve() : DIDNT_CONVERGE;
-        if (res == DIDNT_CONVERGE)
-        {
-            supressSolve = true;
-        }
+        const auto result = (!supressSolve || sys.has_dragged()) ? sys.solve() : DIDNT_CONVERGE;
+        supressSolve = result == DIDNT_CONVERGE;
+        constraintsTopologyChanged = constraintsChanged = entitiesChanged = loopsChanged
+            = topologyChanged = false;
+        return result;
+    }
+
+    SolveResult drag_point(const std::shared_ptr<PointE>& point, double x, double y)
+    {
+        // Ensure the persistent system is current before adding temporary soft
+        // equations. Drag equations influence the first Newton iterations and are
+        // then dropped so hard constraints always win.
+        if (is_dirty())
+            update();
+        auto drag_x = point->x->expr()->drag(expr(x));
+        auto drag_y = point->y->expr()->drag(expr(y));
+        sys.add_equation(drag_x);
+        sys.add_equation(drag_y);
+        const auto result = sys.solve();
+        sys.remove_equation(drag_x);
+        sys.remove_equation(drag_y);
+        return result;
+    }
+
+    int degrees_of_freedom()
+    {
+        int dof = 0;
+        sys.update_dirty();
+        sys.test_rank(dof);
+        return dof;
     }
 
     void generate_equations(EquationSystem& system)

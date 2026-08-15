@@ -12,6 +12,8 @@ constexpr bool DEBUG = false;
 
 void EquationSystem::add_equation(const std::shared_ptr<Expr>& eq)
 {
+    if (!eq)
+        throw std::invalid_argument("Cannot add a null equation");
     if (DEBUG)
         std::cout << "Adding equation: " << eq->to_string() << std::endl;
     source_equations.push_back(eq);
@@ -46,6 +48,8 @@ void EquationSystem::remove_equation(const std::shared_ptr<Expr>& eq)
 
 void EquationSystem::add_parameter(const std::shared_ptr<Param<double>>& p)
 {
+    if (!p)
+        throw std::invalid_argument("Cannot add a null parameter");
     if (DEBUG)
         std::cout << "Adding Parameter: " << p->to_string() << std::endl;
     if (std::find(parameters.begin(), parameters.end(), p) != parameters.end())
@@ -68,10 +72,9 @@ void EquationSystem::remove_parameter(const std::shared_ptr<Param<double>>& p)
         std::cout << "Removing Parameter " << p->to_string() << std::endl;
     auto it = std::find(parameters.begin(), parameters.end(), p);
     if (it == parameters.end())
-    {
-        throw std::runtime_error(
-            "Could not remove parameter, it doesn't exist in parameters vector.");
-    }
+        throw std::runtime_error("Could not remove parameter: it does not exist");
+    parameters.erase(it);
+    is_dirty = true;
 }
 
 void EquationSystem::eval(xt::xtensor<double, 1>& B, bool clear_drag)
@@ -97,7 +100,7 @@ bool EquationSystem::is_converged(bool check_drag, bool print_non_converged /* =
             continue;
         }
 
-        if (std::abs(B(i)) < GaussianMethod::epsilon)
+        if (std::isfinite(B(i)) && std::abs(B(i)) < GaussianMethod::epsilon)
             continue;
 
         if (print_non_converged)
@@ -205,6 +208,10 @@ void EquationSystem::solve_least_squares(const xt::xtensor<double, 2>& A,
         }
     }
 
+    // Solve the dual minimum-norm problem. A small Levenberg damping term
+    // keeps redundant and temporarily singular constraint sets well behaved.
+    for (std::size_t i = 0; i < rows; ++i)
+        AAT(i, i) += 1e-12;
     GaussianMethod::solve(AAT, B, Z);
 
     for (int c = 0; c < cols; c++)
@@ -248,7 +255,10 @@ void EquationSystem::update_dirty()
             e.ReduceParams(current_params);
         }*/
         // current_params = parameters.Where(p => equations.Any(e => e.IsDependOn(p))).ToList();
-        subs = solve_by_substitution();
+        // Keep the source expression graph immutable. The old substitution pass
+        // rewrote shared expression nodes and silently corrupted later rebuilds.
+        // The damped least-squares solver handles coincident parameters directly.
+        subs.clear();
 
         J = write_jacobian(equations, current_params);
         A = xt::empty<double>(J.shape());
@@ -329,6 +339,7 @@ SolveResult EquationSystem::solve()
     dof_changed = false;
     update_dirty();
     store_params();
+    stats.clear();
     int steps = 0;
     do
     {
@@ -346,8 +357,6 @@ SolveResult EquationSystem::solve()
             if (steps > 0)
             {
                 dof_changed = true;
-                std::cout << "Solved " << equations.size() << " equations with "
-                          << current_params.size() << " unknowns in " << steps << " steps.\n";
             }
             stats += "eqs: " + std::to_string(equations.size())
                      + "\nnunkn: " + std::to_string(current_params.size());
@@ -377,7 +386,8 @@ SolveResult EquationSystem::solve()
         {
             current_params[i]->set_value(current_params[i]->value() - X(i));
         }
-    } while (steps++ <= max_steps);
+        ++steps;
+    } while (steps <= max_steps);
 
     if (DEBUG)
     {
@@ -395,7 +405,8 @@ SolveResult EquationSystem::solve()
         }
     }
 
-    is_converged(false, true);
+    if (DEBUG)
+        is_converged(false, true);
 
     if (revert_when_not_converged)
     {
