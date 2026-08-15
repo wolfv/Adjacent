@@ -29,7 +29,26 @@
       <label>Advance <input id="advance" type="number" value="700"></label>
       <label>UPM <input id="upm" type="number" value="1000"></label>
       <h3>CONSTRAINTS</h3>
-      <div class="constraint-status">G² joins are solved in C++/WASM. Geometric CAD constraints are the next binding layer.</div>
+      <div class="constraint-grid">
+        <button data-constraint="fixed">Fixed point</button>
+        <button data-constraint="coincident">Coincident</button>
+        <button data-constraint="horizontal">Horizontal</button>
+        <button data-constraint="vertical">Vertical</button>
+        <button data-constraint="distance">Point distance</button>
+        <button data-constraint="length">Line length</button>
+        <button data-constraint="parallel">Parallel</button>
+        <button data-constraint="perpendicular">Perpendicular</button>
+        <button data-constraint="equalLength">Equal length</button>
+        <button data-constraint="midpoint">Midpoint</button>
+        <button data-constraint="pointOnLine">Point on line</button>
+        <button data-constraint="pointLineDistance">Point-line distance</button>
+        <button data-constraint="angle">Angle</button>
+        <button data-constraint="diameter">Diameter</button>
+        <button data-constraint="equalRadius">Equal radius</button>
+        <button data-constraint="concentric">Concentric</button>
+        <button id="remove-constraint">Remove last</button>
+      </div>
+      <div class="constraint-status">Shift-click points, lines, or circles to multi-select. Constraints and dragging are solved by libadjacent in WASM.</div>
     </aside>
     <section class="stage">
       <canvas id="canvas"></canvas>

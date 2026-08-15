@@ -8,4 +8,4 @@ pixi run serve
 # open http://localhost:8000
 ```
 
-Features in this branch include draggable G2 auto-splines, draggable manual hyperbezier handles, smooth/corner nodes, line and circle tools, project JSON, glyph metadata, and SVG export. The remaining native CAD constraint bindings and full font compilation UI are intentionally tracked as subsequent work.
+Features in this branch include draggable G2 auto-splines, draggable manual hyperbezier handles, smooth/corner nodes, line and circle tools, project JSON, glyph metadata, and SVG export. CAD points, lines, circles, direct manipulation, DOF reporting, and sixteen geometric constraint operations are bound directly to `libadjacent` in WASM. Full browser-side OpenType compilation remains subsequent work.

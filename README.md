@@ -120,7 +120,9 @@ pixi run web-serve
 
 Auto handles are orange; dragging one converts its segment to manual control. The web
 prototype also includes smooth/corner nodes, line and circle tools, project JSON, glyph
-metadata, and SVG export.
+metadata, SVG export, direct constrained dragging, DOF reporting, and native WASM bindings
+for fixed/coincident/HV/distance/length/angle/parallel/perpendicular/equality/midpoint/
+point-on/concentric constraints.
 
 ## Further roadmap
 

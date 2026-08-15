@@ -1,6 +1,7 @@
 #include <emscripten/bind.h>
 
 #include <hyperbezier.hpp>
+#include <constraint.hpp>
 
 #include <algorithm>
 #include <vector>
@@ -13,6 +14,158 @@ using emscripten::val;
 
 namespace
 {
+class WebConstraintSketch
+{
+public:
+    unsigned add_point(double x, double y)
+    {
+        auto p = std::make_shared<PointE>(x, y);
+        points.push_back(p);
+        sketch.add_entity(p);
+        return points.size() - 1;
+    }
+
+    unsigned add_line(unsigned a, unsigned b)
+    {
+        auto entity = std::make_shared<LineE>(*point(a), *point(b));
+        lines.push_back(entity);
+        sketch.add_entity(entity);
+        return lines.size() - 1;
+    }
+
+    unsigned add_circle(unsigned center, double radius)
+    {
+        auto entity = std::make_shared<CircleE>(*point(center),
+                                                param("web_radius", radius));
+        circles.push_back(entity);
+        sketch.add_entity(entity);
+        return circles.size() - 1;
+    }
+
+    int solve() { return static_cast<int>(sketch.update()); }
+
+    int drag_point(unsigned id, double x, double y)
+    {
+        std::vector<std::shared_ptr<PointE>> stays;
+        for (unsigned i = 0; i < points.size(); ++i)
+            if (i != id)
+                stays.push_back(points[i]);
+        return static_cast<int>(sketch.drag_point_with_stays(point(id), x, y, stays));
+    }
+
+    val geometry()
+    {
+        val result = val::object();
+        val js_points = val::array();
+        for (unsigned i = 0; i < points.size(); ++i)
+        {
+            js_points.set(i * 2, points[i]->x->value());
+            js_points.set(i * 2 + 1, points[i]->y->value());
+        }
+        val radii = val::array();
+        for (unsigned i = 0; i < circles.size(); ++i)
+            radii.set(i, circles[i]->radius()->eval());
+        result.set("points", js_points);
+        result.set("radii", radii);
+        result.set("dof", sketch.degrees_of_freedom());
+        return result;
+    }
+
+    int fixed(unsigned p) { return add(std::make_shared<FixedPointConstraint>(point(p))); }
+    int coincident(unsigned a, unsigned b)
+    {
+        auto pa = point(a), pb = point(b);
+        return add(std::make_shared<PointsCoincidentConstraint>(pa, pb));
+    }
+    int horizontal(unsigned l)
+    {
+        return add(std::make_shared<HVConstraint>(line(l), HVOrientation::OX));
+    }
+    int vertical(unsigned l)
+    {
+        return add(std::make_shared<HVConstraint>(line(l), HVOrientation::OY));
+    }
+    int distance(unsigned a, unsigned b, double value)
+    {
+        auto pa = point(a), pb = point(b);
+        return add(std::make_shared<PointsDistanceConstraint>(pa, pb, value));
+    }
+    int length(unsigned l, double value)
+    {
+        return add(std::make_shared<LengthConstraint>(line(l), value));
+    }
+    int parallel(unsigned a, unsigned b)
+    {
+        auto la = line(a), lb = line(b);
+        return add(std::make_shared<ParallelConstraint>(la, lb));
+    }
+    int perpendicular(unsigned a, unsigned b)
+    {
+        return add(std::make_shared<PerpendicularConstraint>(line(a), line(b)));
+    }
+    int equal_length(unsigned a, unsigned b)
+    {
+        return add(std::make_shared<EqualLengthConstraint>(line(a), line(b)));
+    }
+    int midpoint(unsigned p, unsigned l)
+    {
+        return add(std::make_shared<MidpointConstraint>(point(p), line(l)));
+    }
+    int point_on_line(unsigned p, unsigned l)
+    {
+        return add(std::make_shared<PointOnConstraint>(point(p), line(l)));
+    }
+    int point_line_distance(unsigned p, unsigned l, double value)
+    {
+        return add(std::make_shared<PointLineDistanceConstraint>(point(p), line(l), value));
+    }
+    int diameter(unsigned c, double value)
+    {
+        EntityPtr entity = circle(c);
+        return add(std::make_shared<DiameterConstraint>(entity, value));
+    }
+    int equal_radius(unsigned a, unsigned b)
+    {
+        EntityPtr ca = circle(a), cb = circle(b);
+        return add(std::make_shared<EqualRadiusConstraint>(ca, cb));
+    }
+    int concentric(unsigned a, unsigned b)
+    {
+        EntityPtr ca = circle(a), cb = circle(b);
+        return add(std::make_shared<ConcentricConstraint>(ca, cb));
+    }
+    int angle(unsigned a, unsigned b, double radians)
+    {
+        auto la = line(a), lb = line(b);
+        return add(std::make_shared<AngleConstraint>(la, lb, radians));
+    }
+    int remove_last_constraint()
+    {
+        if (constraints.empty())
+            return solve();
+        sketch.remove_constraint(constraints.back());
+        constraints.pop_back();
+        return solve();
+    }
+
+private:
+    Sketch sketch;
+    std::vector<std::shared_ptr<PointE>> points;
+    std::vector<std::shared_ptr<LineE>> lines;
+    std::vector<std::shared_ptr<CircleE>> circles;
+    std::vector<ConstraintPtr> constraints;
+
+    std::shared_ptr<PointE> point(unsigned id) const { return points.at(id); }
+    std::shared_ptr<LineE> line(unsigned id) const { return lines.at(id); }
+    std::shared_ptr<CircleE> circle(unsigned id) const { return circles.at(id); }
+    int add(const ConstraintPtr& constraint)
+    {
+        constraints.push_back(constraint);
+        sketch.add_constraint(constraint);
+        return solve();
+    }
+};
+
 class WebHyperSpline
 {
 public:
@@ -150,6 +303,32 @@ private:
 
 EMSCRIPTEN_BINDINGS(adjacent_web)
 {
+    emscripten::class_<WebConstraintSketch>("ConstraintSketch")
+        .constructor<>()
+        .function("addPoint", &WebConstraintSketch::add_point)
+        .function("addLine", &WebConstraintSketch::add_line)
+        .function("addCircle", &WebConstraintSketch::add_circle)
+        .function("solve", &WebConstraintSketch::solve)
+        .function("dragPoint", &WebConstraintSketch::drag_point)
+        .function("geometry", &WebConstraintSketch::geometry)
+        .function("fixed", &WebConstraintSketch::fixed)
+        .function("coincident", &WebConstraintSketch::coincident)
+        .function("horizontal", &WebConstraintSketch::horizontal)
+        .function("vertical", &WebConstraintSketch::vertical)
+        .function("distance", &WebConstraintSketch::distance)
+        .function("length", &WebConstraintSketch::length)
+        .function("parallel", &WebConstraintSketch::parallel)
+        .function("perpendicular", &WebConstraintSketch::perpendicular)
+        .function("equalLength", &WebConstraintSketch::equal_length)
+        .function("midpoint", &WebConstraintSketch::midpoint)
+        .function("pointOnLine", &WebConstraintSketch::point_on_line)
+        .function("pointLineDistance", &WebConstraintSketch::point_line_distance)
+        .function("diameter", &WebConstraintSketch::diameter)
+        .function("equalRadius", &WebConstraintSketch::equal_radius)
+        .function("concentric", &WebConstraintSketch::concentric)
+        .function("angle", &WebConstraintSketch::angle)
+        .function("removeLastConstraint", &WebConstraintSketch::remove_last_constraint);
+
     emscripten::class_<WebHyperSpline>("HyperSpline")
         .constructor<>()
         .function("setPoints", &WebHyperSpline::set_points)
