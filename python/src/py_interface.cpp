@@ -4,6 +4,7 @@
 #include <adjacent/expression.hpp>
 #include <adjacent/entity.hpp>
 #include <adjacent/constraint.hpp>
+#include <adjacent/hyperbezier.hpp>
 
 
 namespace py = pybind11;
@@ -157,6 +158,47 @@ PYBIND11_MODULE(_adjacent, m)
                ValueConstraint,
                std::shared_ptr<PointLineDistanceConstraint>>(sub, "PointLineDistance")
         .def(py::init<const std::shared_ptr<PointE>&, const std::shared_ptr<LineE>&, double>());
+
+    py::class_<adjacent::HyperBezierResult>(m, "HyperBezierResult")
+        .def_readonly("theta0", &adjacent::HyperBezierResult::theta0)
+        .def_readonly("theta1", &adjacent::HyperBezierResult::theta1)
+        .def_readonly("chord", &adjacent::HyperBezierResult::chord)
+        .def_readonly("curvature0", &adjacent::HyperBezierResult::curvature0)
+        .def_readonly("curvature1", &adjacent::HyperBezierResult::curvature1);
+
+    py::class_<adjacent::HyperBezier>(m, "HyperBezier")
+        .def(py::init<double, double, double, double>())
+        .def_readwrite("k0", &adjacent::HyperBezier::k0)
+        .def_readwrite("bias0", &adjacent::HyperBezier::bias0)
+        .def_readwrite("k1", &adjacent::HyperBezier::k1)
+        .def_readwrite("bias1", &adjacent::HyperBezier::bias1)
+        .def("theta", &adjacent::HyperBezier::theta)
+        .def("measure", &adjacent::HyperBezier::measure)
+        .def("point", &adjacent::HyperBezier::point)
+        .def("samples", &adjacent::HyperBezier::samples, py::arg("count") = 64)
+        .def_static("for_tangents", &adjacent::HyperBezier::for_tangents)
+        .def_static("from_control_points", &adjacent::HyperBezier::from_control_points)
+        .def_static("parameters_for_arm", &adjacent::HyperBezier::parameters_for_arm)
+        .def_static("arm_for_parameters", &adjacent::HyperBezier::arm_for_parameters);
+
+    py::class_<adjacent::HyperSegment>(m, "HyperSegment")
+        .def_readonly("start", &adjacent::HyperSegment::start)
+        .def_readonly("end", &adjacent::HyperSegment::end)
+        .def_readonly("curve", &adjacent::HyperSegment::curve)
+        .def_readonly("theta0", &adjacent::HyperSegment::theta0)
+        .def_readonly("theta1", &adjacent::HyperSegment::theta1)
+        .def("point", &adjacent::HyperSegment::point)
+        .def("samples", &adjacent::HyperSegment::samples, py::arg("count") = 64)
+        .def("auto_handles", &adjacent::HyperSegment::auto_handles)
+        .def("endpoint_curvatures", &adjacent::HyperSegment::endpoint_curvatures);
+
+    py::class_<adjacent::AutoHyperSpline>(m, "AutoHyperSpline")
+        .def(py::init<const std::vector<adjacent::HyperPoint>&>())
+        .def_property_readonly("points", &adjacent::AutoHyperSpline::points)
+        .def_property_readonly("tangents", &adjacent::AutoHyperSpline::tangents)
+        .def("segments", &adjacent::AutoHyperSpline::segments)
+        .def("set_point", &adjacent::AutoHyperSpline::set_point)
+        .def("solve", &adjacent::AutoHyperSpline::solve, py::arg("iterations") = 12);
 
     py::class_<Expr, std::shared_ptr<Expr>>(m, "Expr")
         .def(py::init<double>())

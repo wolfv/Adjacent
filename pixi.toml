@@ -48,5 +48,11 @@ cmd = "pixi run --manifest-path lib/pixi.toml test"
 [tasks.test]
 depends-on = ["test-cpp", "test-python"]
 
+[tasks.web-build]
+cmd = "pixi run --manifest-path web/pixi.toml build"
+
+[tasks.web-serve]
+cmd = "pixi run --manifest-path web/pixi.toml serve"
+
 [tasks.build-packages]
 cmd = "pixi publish --path lib --target-dir dist && pixi publish --path python --target-dir dist"

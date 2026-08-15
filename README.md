@@ -109,6 +109,19 @@ pixi run demo-hyperbezier  # experimental G2 hyperbezier auto-spline
 The bindings also expose `Sketch.drag_point(point, x, y)` for integration into
 other GUI frameworks.
 
+### WebAssembly editor (experimental branch)
+
+The same C++ hyperbezier core builds with Emscripten and drives a native Canvas editor:
+
+```bash
+pixi run web-serve
+# open http://localhost:8000
+```
+
+Auto handles are orange; dragging one converts its segment to manual control. The web
+prototype also includes smooth/corner nodes, line and circle tools, project JSON, glyph
+metadata, and SVG export.
+
 ## Further roadmap
 
 Production CAD integrations may additionally need inequality/bounded curve parameters,

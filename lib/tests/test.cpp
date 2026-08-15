@@ -4,6 +4,7 @@
 
 #include "constraint.hpp"
 #include "gaussian_method.hpp"
+#include "hyperbezier.hpp"
 
 namespace
 {
@@ -105,6 +106,27 @@ int main()
     assert(angle_sketch.update() == SolveResult::OKAY);
     assert(near(b1->x->value(), 0.0));
     assert(near(b1->y->value(), 2.0));
+
+    // Hyperbezier endpoint interpolation, tangent fitting, high tension, and global G2 joins.
+    auto hyper = adjacent::HyperBezier::for_tangents(-0.4, 1.0, 0.3, 1.0);
+    const auto hyper_start = hyper.point(0.0);
+    const auto hyper_end = hyper.point(1.0);
+    const auto hyper_measure = hyper.measure();
+    assert(near(hyper_start[0], 0.0) && near(hyper_start[1], 0.0));
+    assert(near(hyper_end[0], 1.0) && near(hyper_end[1], 0.0));
+    assert(near(hyper_measure.theta0, -0.4));
+    assert(near(hyper_measure.theta1, 0.3));
+    auto tense = adjacent::HyperBezier::for_tangents(-1.1, 1.8, -0.8, 1.6);
+    for (const auto& sample : tense.samples(20))
+        assert(std::isfinite(sample[0]) && std::isfinite(sample[1]));
+
+    adjacent::AutoHyperSpline auto_spline({ { 0.0, 0.0 }, { 1.0, 2.0 },
+                                             { 3.0, 1.0 }, { 4.0, 3.0 } });
+    const auto hyper_segments = auto_spline.segments();
+    assert(hyper_segments.size() == 3);
+    for (std::size_t i = 0; i + 1 < hyper_segments.size(); ++i)
+        assert(near(hyper_segments[i].endpoint_curvatures()[1],
+                    hyper_segments[i + 1].endpoint_curvatures()[0]));
 
     // Cubic Bezier evaluation, derivatives, symbolic quadrature, and parameter bounds.
     auto bezier_p0 = point("bezier_p0", 0.0, 0.0);

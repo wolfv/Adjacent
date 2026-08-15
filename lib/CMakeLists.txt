@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(adjacent VERSION 0.2.1 LANGUAGES CXX)
+project(adjacent VERSION 0.2.2 LANGUAGES CXX)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -14,6 +14,7 @@ add_library(adjacent
     src/gaussian_method.cpp
     src/equation_system.cpp
     src/expr_basis.cpp
+    src/hyperbezier.cpp
 )
 add_library(adjacent::adjacent ALIAS adjacent)
 set_target_properties(adjacent PROPERTIES
@@ -39,6 +40,8 @@ install(TARGETS adjacent
     INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
 )
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/adjacent)
+install(FILES LICENSES/HYPERBEZIER-MIT.txt
+    DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/libadjacent)
 install(EXPORT adjacentTargets
     FILE adjacentTargets.cmake
     NAMESPACE adjacent::

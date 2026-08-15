@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Adjacent Web CAD & Type</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <strong>ADJACENT</strong><span class="tag">WASM CAD + TYPE LAB</span>
+    <button id="export-svg">Export SVG</button>
+    <button id="save-project">Save project</button>
+    <label class="file">Open project<input id="open-project" type="file" accept="application/json"></label>
+  </header>
+  <main>
+    <aside>
+      <h3>TOOLS</h3>
+      <button class="tool active" data-tool="select">V Select</button>
+      <button class="tool" data-tool="pen">P Hyper pen</button>
+      <button class="tool" data-tool="line">L Line</button>
+      <button class="tool" data-tool="circle">C Circle</button>
+      <button id="reset-handles">Reset auto handles</button>
+      <h3>POINT</h3>
+      <button id="toggle-point">Smooth ↔ corner</button>
+      <p class="hint">Blue circles are smooth nodes. Green squares are corners. Drag an orange × to make that hyperbezier handle manual.</p>
+      <h3>FONT</h3>
+      <label>Glyph <input id="glyph" value="A" maxlength="2"></label>
+      <label>Advance <input id="advance" type="number" value="700"></label>
+      <label>UPM <input id="upm" type="number" value="1000"></label>
+      <h3>CONSTRAINTS</h3>
+      <div class="constraint-status">G² joins are solved in C++/WASM. Geometric CAD constraints are the next binding layer.</div>
+    </aside>
+    <section class="stage">
+      <canvas id="canvas"></canvas>
+      <div id="status">Loading C++/WASM…</div>
+    </section>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

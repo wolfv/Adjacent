@@ -7,7 +7,7 @@ from adjacent.hyperbezier import AutoHyperSpline, HyperBezier
 class HyperBezierTests(unittest.TestCase):
     def test_endpoints_and_requested_tangents(self):
         curve = HyperBezier.for_tangents(-0.4, 1.0, 0.3, 1.0)
-        self.assertEqual(curve.point(0.0), (0.0, 0.0))
+        self.assertEqual(list(curve.point(0.0)), [0.0, 0.0])
         self.assertAlmostEqual(curve.point(1.0)[0], 1.0, places=12)
         self.assertAlmostEqual(curve.point(1.0)[1], 0.0, places=12)
         measured = curve.measure()
