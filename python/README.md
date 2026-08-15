@@ -9,3 +9,4 @@ Installed commands:
 - `adjacent-demo`
 - `adjacent-bezier-demo`
 - `adjacent-pelican-demo`
+- `adjacent-hyperbezier-demo` (experimental G2 auto-spline)

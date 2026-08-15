@@ -102,7 +102,8 @@ library:
 ```bash
 pixi run demo          # constrained rectangle
 pixi run demo-bezier   # draggable cubic Bézier control points
-pixi run demo-pelican  # constrained pelican riding a bicycle (all nodes draggable)
+pixi run demo-pelican      # constrained pelican riding a bicycle
+pixi run demo-hyperbezier  # experimental G2 hyperbezier auto-spline
 ```
 
 The bindings also expose `Sketch.drag_point(point, x, y)` for integration into

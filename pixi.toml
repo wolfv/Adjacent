@@ -35,6 +35,10 @@ description = "Launch the cubic Bézier demo"
 cmd = "adjacent-pelican-demo"
 description = "Launch the draggable constrained pelican bicycle demo"
 
+[tasks.demo-hyperbezier]
+cmd = "adjacent-hyperbezier-demo"
+description = "Launch the experimental G2 hyperbezier auto-spline demo"
+
 [tasks.test-python]
 cmd = "python -m unittest discover -s python/tests -v"
 
