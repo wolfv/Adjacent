@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(adjacent VERSION 0.2.0 LANGUAGES CXX)
+project(adjacent VERSION 0.2.1 LANGUAGES CXX)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)

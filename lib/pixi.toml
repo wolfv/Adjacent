@@ -6,7 +6,7 @@ preview = ["pixi-build"]
 
 [package]
 name = "libadjacent"
-version = "0.2.0"
+version = "0.2.1"
 description = "C++17 symbolic 2D geometric constraint solver"
 license = "GPL-3.0-or-later"
 license-file = "LICENSE"
@@ -18,6 +18,9 @@ channels = ["https://prefix.dev/pixi-build-backends", "conda-forge"]
 
 [package.build.config]
 extra-args = ["-DBUILD_TESTING=OFF"]
+# Public header-only APIs (constraints and entities) are not all visible in the
+# library's Ninja depfiles, so explicitly include them in source-package hashing.
+extra-input-globs = ["include/**/*.hpp", "cmake/**/*", "tests/**/*"]
 
 [package.host-dependencies]
 xtensor = ">=0.24,<0.26"

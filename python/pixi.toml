@@ -6,7 +6,7 @@ preview = ["pixi-build"]
 
 [package]
 name = "adjacent-python"
-version = "0.2.0"
+version = "0.2.1"
 description = "Python bindings and Tk CAD applications for Adjacent"
 license = "GPL-3.0-or-later"
 license-file = "LICENSE"

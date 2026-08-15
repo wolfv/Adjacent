@@ -704,18 +704,32 @@ public:
 
     SolveResult drag_point(const std::shared_ptr<PointE>& point, double x, double y)
     {
-        // Ensure the persistent system is current before adding temporary soft
-        // equations. Drag equations influence the first Newton iterations and are
-        // then dropped so hard constraints always win.
+        return drag_point_with_stays(point, x, y, {});
+    }
+
+    SolveResult drag_point_with_stays(
+        const std::shared_ptr<PointE>& point, double x, double y,
+        const std::vector<std::shared_ptr<PointE>>& stay_points)
+    {
+        // Drag and stay expressions are temporary goals: they guide the first
+        // Newton iterations, then disappear so persistent constraints always win.
         if (is_dirty())
             update();
-        auto drag_x = point->x->expr()->drag(expr(x));
-        auto drag_y = point->y->expr()->drag(expr(y));
-        sys.add_equation(drag_x);
-        sys.add_equation(drag_y);
+        std::vector<ExprPtr> goals = {
+            point->x->expr()->drag(expr(x)), point->y->expr()->drag(expr(y))
+        };
+        for (const auto& stay : stay_points)
+        {
+            if (!stay || stay == point)
+                continue;
+            goals.push_back(stay->x->expr()->drag(expr(stay->x->value())));
+            goals.push_back(stay->y->expr()->drag(expr(stay->y->value())));
+        }
+        for (const auto& goal : goals)
+            sys.add_equation(goal);
         const auto result = sys.solve();
-        sys.remove_equation(drag_x);
-        sys.remove_equation(drag_y);
+        for (const auto& goal : goals)
+            sys.remove_equation(goal);
         return result;
     }
 

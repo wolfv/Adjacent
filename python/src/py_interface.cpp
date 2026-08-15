@@ -23,6 +23,7 @@ PYBIND11_MODULE(_adjacent, m)
         .def("remove_entity", &Sketch::remove_entity)
         .def("remove_constraint", &Sketch::remove_constraint)
         .def("drag_point", &Sketch::drag_point)
+        .def("drag_point_with_stays", &Sketch::drag_point_with_stays)
         .def("degrees_of_freedom", &Sketch::degrees_of_freedom)
         .def("update", &Sketch::update);
 

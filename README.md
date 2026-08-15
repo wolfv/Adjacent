@@ -75,8 +75,9 @@ adjacent-font-editor
 ```
 
 It provides multi-glyph projects, line and cubic Bézier contours, direct node/handle
-editing, snapping, point constraints, panning and zooming, SVG path import/export,
-project save/load, glyph metrics, and TrueType export through FontTools.
+editing, snapping, point constraints, contour-preserving soft stays during dragging,
+panning and zooming, SVG path import/export, project save/load, glyph metrics, and
+TrueType export through FontTools.
 
 ## Simple CAD editor
 

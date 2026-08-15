@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(adjacent_python VERSION 0.2.0 LANGUAGES CXX)
+project(adjacent_python VERSION 0.2.1 LANGUAGES CXX)
 
 find_package(Python COMPONENTS Interpreter Development.Module REQUIRED)
 find_package(pybind11 CONFIG REQUIRED)

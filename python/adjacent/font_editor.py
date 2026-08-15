@@ -149,6 +149,8 @@ class FontEditor:
         self.pan_anchor = None
         self.snap = tk.BooleanVar(value=True)
         self.show_handles = tk.BooleanVar(value=True)
+        self.preserve_contours = tk.BooleanVar(value=True)
+        self.drag_group_ids = set()
 
         self.build_menu()
         self.build_ui()
@@ -210,6 +212,8 @@ class FontEditor:
         tk.Checkbutton(left, text="Snap to 10 units", variable=self.snap, bg="#e2e8f0").pack(anchor="w")
         tk.Checkbutton(left, text="Show handles", variable=self.show_handles,
                        bg="#e2e8f0", command=self.redraw).pack(anchor="w")
+        tk.Checkbutton(left, text="Keep other contours still", variable=self.preserve_contours,
+                       bg="#e2e8f0").pack(anchor="w")
 
         right = tk.Frame(self.root, width=235, padx=6, pady=5)
         right.pack(side=tk.RIGHT, fill=tk.Y)
@@ -310,6 +314,7 @@ class FontEditor:
                     self.selected_points = [point]
                 self.selected_segments.clear()
                 self.dragging = point
+                self.drag_group_ids = self.contour_point_ids(point)
             else:
                 segment = self.pick_segment(event)
                 self.selected_points.clear()
@@ -351,15 +356,28 @@ class FontEditor:
                 return point
         return None
 
+    def contour_point_ids(self, point):
+        for contour in self.glyph.contours:
+            contour_points = [candidate for segment in contour.segments for candidate in segment.points]
+            if any(candidate is point for candidate in contour_points):
+                return {id(candidate) for candidate in contour_points}
+        return {id(point)}
+
     def on_motion(self, event):
         if not self.dragging:
             return
-        result = self.glyph.sketch.drag_point(self.dragging, *self.to_world(event.x, event.y))
+        target = self.to_world(event.x, event.y)
+        if self.preserve_contours.get():
+            stays = [point for point in self.glyph.points if id(point) not in self.drag_group_ids]
+            result = self.glyph.sketch.drag_point_with_stays(self.dragging, *target, stays)
+        else:
+            result = self.glyph.sketch.drag_point(self.dragging, *target)
         self.status.set(f"{result.name}  •  DOF {self.glyph.sketch.degrees_of_freedom()}")
         self.redraw()
 
     def on_release(self, _event):
         self.dragging = None
+        self.drag_group_ids.clear()
 
     def pan_start(self, event):
         self.pan_anchor = event.x, event.y, self.origin_x, self.origin_y

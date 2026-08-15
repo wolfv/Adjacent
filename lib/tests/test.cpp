@@ -69,6 +69,24 @@ int main()
     assert(near(drag_end->x->value(), 4.0));
     assert(near(drag_end->y->value(), 0.0));
 
+    // Stay goals keep unrelated contours stable during constrained dragging.
+    auto outer0 = point("outer0", 0.0, 0.0);
+    auto outer1 = point("outer1", 4.0, 0.0);
+    auto inner0 = point("inner0", 0.0, 1.0);
+    auto inner1 = point("inner1", 2.0, 1.0);
+    auto outer_line = std::make_shared<LineE>(*outer0, *outer1);
+    auto inner_line = std::make_shared<LineE>(*inner0, *inner1);
+    Sketch stay_sketch;
+    stay_sketch.add_entity(outer_line);
+    stay_sketch.add_entity(inner_line);
+    stay_sketch.add_constraint(std::make_shared<ParallelConstraint>(outer_line, inner_line));
+    assert(stay_sketch.update() == SolveResult::OKAY);
+    assert(stay_sketch.drag_point_with_stays(inner0, 0.0, 2.0, { outer0, outer1 })
+           == SolveResult::OKAY);
+    assert(near(outer0->x->value(), 0.0) && near(outer0->y->value(), 0.0));
+    assert(near(outer1->x->value(), 4.0) && near(outer1->y->value(), 0.0));
+    assert(near(inner0->y->value(), 2.0));
+
     // Directed angle and perpendicular constraints.
     auto a0 = point("a0", 0.0, 0.0);
     auto a1 = point("a1", 2.0, 0.0);
