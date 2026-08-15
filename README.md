@@ -34,8 +34,8 @@ Build distributable Conda packages from the Pixi package manifests:
 ```bash
 pixi run build-packages
 # Equivalent individual builds:
-pixi build --path lib --output-dir dist
-pixi build --path python --output-dir dist
+pixi publish --path lib --target-dir dist
+pixi publish --path python --target-dir dist
 ```
 
 The C++ project remains usable as an installed CMake package through
@@ -63,6 +63,20 @@ sketch.add_constraint(constraints.HV(line, constraints.HVOrientation.OX))
 sketch.add_constraint(constraints.Length(line, 5))
 assert sketch.update() == adjacent.SolveResult.OKAY
 ```
+
+## SVG and font editor
+
+Launch the constraint-based glyph outline editor:
+
+```bash
+pixi run font-editor
+# Installed package command:
+adjacent-font-editor
+```
+
+It provides multi-glyph projects, line and cubic Bézier contours, direct node/handle
+editing, snapping, point constraints, panning and zooming, SVG path import/export,
+project save/load, glyph metrics, and TrueType export through FontTools.
 
 ## Simple CAD editor
 

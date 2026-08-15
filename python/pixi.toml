@@ -29,14 +29,19 @@ libadjacent = { path = "../lib" }
 [package.run-dependencies]
 libadjacent = { path = "../lib" }
 tk = "*"
+fonttools = ">=4.50"
 
 [dependencies]
 adjacent-python = { path = "." }
 python = ">=3.9"
 tk = "*"
+fonttools = ">=4.50"
 
 [tasks.test]
-cmd = "python -c \"import adjacent; p=adjacent.Point(1, 2); assert p.eval() == [1.0, 2.0]\""
+cmd = "python -m unittest discover -s tests -v"
+
+[tasks.font-editor]
+cmd = "adjacent-font-editor"
 
 [tasks.cad]
 cmd = "adjacent-cad"

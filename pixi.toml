@@ -15,6 +15,10 @@ tk = "*"
 [dependencies]
 adjacent-python = { workspace = true }
 
+[tasks.font-editor]
+cmd = "adjacent-font-editor"
+description = "Launch the SVG and font outline editor"
+
 [tasks.cad]
 cmd = "adjacent-cad"
 description = "Launch the interactive CAD editor"
@@ -28,7 +32,7 @@ cmd = "adjacent-bezier-demo"
 description = "Launch the cubic Bézier demo"
 
 [tasks.test-python]
-cmd = "python -c \"import adjacent; p=adjacent.Point(1, 2); assert p.eval() == [1.0, 2.0]\""
+cmd = "python -m unittest discover -s python/tests -v"
 
 [tasks.test-cpp]
 cmd = "pixi run --manifest-path lib/pixi.toml test"
@@ -37,4 +41,4 @@ cmd = "pixi run --manifest-path lib/pixi.toml test"
 depends-on = ["test-cpp", "test-python"]
 
 [tasks.build-packages]
-cmd = "pixi build --path lib --output-dir dist && pixi build --path python --output-dir dist"
+cmd = "pixi publish --path lib --target-dir dist && pixi publish --path python --target-dir dist"
