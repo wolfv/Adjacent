@@ -35,6 +35,28 @@ class FontEditorModelTests(unittest.TestCase):
         self.assertEqual([len(c.segments) for c in instance.glyph.contours], [4, 1])
         self.assertEqual(instance.glyph.contours[1].segments[0].kind, "cubic")
 
+    def test_parallel_constraint_roundtrip(self):
+        glyph = Glyph("parallel")
+        p0, p1 = glyph.point(0, 0), glyph.point(100, 10)
+        p2, p3 = glyph.point(0, 100), glyph.point(100, 120)
+        first = glyph.new_contour(p0)
+        a = glyph.add_line(first, p0, p1)
+        second = glyph.new_contour(p2)
+        b = glyph.add_line(second, p2, p3)
+        constraint = editor_module.constraints.Parallel(a.entity, b.entity)
+        glyph.sketch.add_constraint(constraint)
+        glyph.constraints.append((constraint, "Parallel lines",
+                                  ("parallel", [p0, p1, p2, p3])))
+        glyph.solve()
+        instance = FontEditor.__new__(FontEditor)
+        data = instance.glyph_to_dict(glyph)
+        restored = instance.glyph_from_dict(data)
+        self.assertEqual(restored.constraints[0][2][0], "parallel")
+        q0, q1, q2, q3 = restored.points
+        d1 = [q1.eval()[i] - q0.eval()[i] for i in range(2)]
+        d2 = [q3.eval()[i] - q2.eval()[i] for i in range(2)]
+        self.assertAlmostEqual(d1[0] * d2[1] - d1[1] * d2[0], 0.0, places=7)
+
     def test_ttf_export(self):
         document = FontDocument()
         document.glyphs = [self.triangle()]

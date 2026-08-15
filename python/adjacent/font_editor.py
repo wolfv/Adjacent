@@ -194,12 +194,14 @@ class FontEditor:
         self.tool_button(left, "Pen / lines (P)", "pen")
         self.tool_button(left, "Cubic curve (B)", "cubic")
         tk.Frame(left, height=2, bg="#94a3b8").pack(fill=tk.X, pady=7)
-        tk.Label(left, text="Point constraints", bg="#e2e8f0",
+        tk.Label(left, text="Constraints", bg="#e2e8f0",
                  font=("TkDefaultFont", 10, "bold")).pack(anchor="w")
         for label, command in [
-            ("Fix", self.constrain_fixed), ("Horizontal", self.constrain_horizontal),
-            ("Vertical", self.constrain_vertical), ("Coincident", self.constrain_coincident),
-            ("Distance…", self.constrain_distance), ("Smooth / collinear", self.constrain_smooth),
+            ("Fix point", self.constrain_fixed), ("Horizontal", self.constrain_horizontal),
+            ("Vertical", self.constrain_vertical), ("Parallel lines", self.constrain_parallel),
+            ("Coincident points", self.constrain_coincident),
+            ("Point distance…", self.constrain_distance),
+            ("Smooth: 3 points", self.constrain_smooth),
         ]:
             tk.Button(left, text=label, width=18, anchor="w", command=command).pack(fill=tk.X, pady=1)
         tk.Frame(left, height=2, bg="#94a3b8").pack(fill=tk.X, pady=7)
@@ -248,7 +250,7 @@ class FontEditor:
         self.tool = tool
         self.pending.clear()
         hints = {
-            "select": "Drag nodes and handles; Shift-click to select several",
+            "select": "Drag nodes; click outlines to select lines; Shift-click selects several",
             "pen": "Click to start or append straight segments; click the first node to close",
             "cubic": "Click an endpoint to append a cubic segment; then adjust its blue handles",
         }
@@ -311,7 +313,13 @@ class FontEditor:
             else:
                 segment = self.pick_segment(event)
                 self.selected_points.clear()
-                self.selected_segments = [segment] if segment else []
+                if event.state & 0x0001:
+                    if segment in self.selected_segments:
+                        self.selected_segments.remove(segment)
+                    elif segment:
+                        self.selected_segments.append(segment)
+                else:
+                    self.selected_segments = [segment] if segment else []
             self.redraw()
             return
         self.append_at(*self.to_world(event.x, event.y))
@@ -409,17 +417,49 @@ class FontEditor:
         if points:
             self.add_constraint(constraints.FixedPoint(points[0]), "Fixed point", ("fixed", points))
 
+    def selected_lines(self, minimum=1):
+        lines = [segment for segment in self.selected_segments if segment.kind == "line"]
+        if len(lines) < minimum or len(lines) != len(self.selected_segments):
+            messagebox.showinfo("Selection", f"Select at least {minimum} straight line segment(s)")
+            return None
+        return lines
+
     def constrain_horizontal(self):
+        if self.selected_segments:
+            lines = self.selected_lines()
+            if not lines: return
+            for segment in lines:
+                points = [segment.start, segment.end]
+                self.add_constraint(constraints.HV(segment.entity, constraints.HVOrientation.OX),
+                                    "Horizontal line", ("horizontal", points))
+            return
         points = self.require_points(2)
         if points:
             self.add_constraint(constraints.HV(points[0], points[1], constraints.HVOrientation.OX),
                                 "Horizontal", ("horizontal", points))
 
     def constrain_vertical(self):
+        if self.selected_segments:
+            lines = self.selected_lines()
+            if not lines: return
+            for segment in lines:
+                points = [segment.start, segment.end]
+                self.add_constraint(constraints.HV(segment.entity, constraints.HVOrientation.OY),
+                                    "Vertical line", ("vertical", points))
+            return
         points = self.require_points(2)
         if points:
             self.add_constraint(constraints.HV(points[0], points[1], constraints.HVOrientation.OY),
                                 "Vertical", ("vertical", points))
+
+    def constrain_parallel(self):
+        lines = self.selected_lines(2)
+        if not lines: return
+        reference = lines[0]
+        for segment in lines[1:]:
+            record_points = [reference.start, reference.end, segment.start, segment.end]
+            self.add_constraint(constraints.Parallel(reference.entity, segment.entity),
+                                "Parallel lines", ("parallel", record_points))
 
     def constrain_coincident(self):
         points = self.require_points(2)
@@ -629,9 +669,13 @@ class FontEditor:
             elif kind == "coincident": constraint = constraints.Coincident(*selected)
             elif kind == "distance":
                 constraint = constraints.Distance(selected[0], selected[1], item["values"][0])
-            elif kind == "smooth":
-                first = adjacent.Line(selected[0], selected[1])
-                second = adjacent.Line(selected[1], selected[2])
+            elif kind in ("smooth", "parallel"):
+                if kind == "smooth":
+                    first = adjacent.Line(selected[0], selected[1])
+                    second = adjacent.Line(selected[1], selected[2])
+                else:
+                    first = adjacent.Line(selected[0], selected[1])
+                    second = adjacent.Line(selected[2], selected[3])
                 glyph.sketch.add_entity(first); glyph.sketch.add_entity(second)
                 constraint = constraints.Parallel(first, second)
             else: continue
