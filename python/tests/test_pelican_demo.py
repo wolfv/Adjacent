@@ -9,6 +9,7 @@ class PelicanBicycleTests(unittest.TestCase):
         self.assertEqual(model.last_result.name, "OKAY")
         self.assertGreaterEqual(len(model.constraint_names), 18)
         self.assertGreaterEqual(len(model.points), 40)
+        self.assertTrue(all(entity.radius().eval() > 0 for entity, _color, _width in model.circles))
 
         point = model.points[0]
         x, y = point.eval()

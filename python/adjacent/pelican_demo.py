@@ -248,7 +248,7 @@ class PelicanBicycleView:
         # Wheels first, with decorative spokes derived from the constrained circles.
         for entity, color, line_width in self.model.circles:
             center = entity.center().eval()
-            radius = entity.radius().value()
+            radius = entity.radius().eval()
             x, y = self.screen(center)
             r = radius * self.scale
             c.create_oval(x-r, y-r, x+r, y+r, outline=color, width=line_width)
