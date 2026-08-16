@@ -11,7 +11,7 @@ const state = {
   tool: 'select',
   points: [[100,480],[235,210],[390,390],[555,170],[710,360],[875,190]],
   smooth: [false,true,true,true,true,false],
-  manual: {}, cadPoints: [], lines: [], circles: [], constraints: [],
+  manual: {}, hyperCadIds: [], cadPoints: [], lines: [], circles: [], constraints: [],
   pending: null, selected: null, selectedCadPoints: [], selectedLines: [],
   selectedCircles: [], drag: null,
 };
@@ -32,6 +32,9 @@ function refreshCad() {
   state.cadPoints = [];
   for (let i=0;i<cadGeometry.points.length;i+=2)
     state.cadPoints.push([cadGeometry.points[i],cadGeometry.points[i+1]]);
+  state.hyperCadIds.forEach((id,index)=>{
+    if(state.cadPoints[id])state.points[index]=[...state.cadPoints[id]];
+  });
 }
 function addCadPoint(pos) {
   const id=cad.addPoint(pos[0],pos[1]); state.cadPoints[id]=[...pos]; return id;
@@ -54,11 +57,18 @@ function applyCadConstraint(spec, record=true) {
   else if(spec.type==='diameter')result=cad.diameter(a[0],a[1]);
   else if(spec.type==='equalRadius')result=cad.equalRadius(a[0],a[1]);
   else if(spec.type==='concentric')result=cad.concentric(a[0],a[1]);
-  if(record)state.constraints.push(spec); refreshCad(); return result;
+  else if(spec.type==='tangent')result=cad.tangent(a[0],a[1]);
+  if(record)state.constraints.push(spec); refreshCad(); sync(); return result;
+}
+function ensureHyperCadPoints() {
+  if(state.hyperCadIds.length===state.points.length)return;
+  state.hyperCadIds=state.points.map(p=>addCadPoint(p));
 }
 function rebuildCad() {
   cad.delete(); cad=new Module.ConstraintSketch();
   state.cadPoints.forEach(p=>cad.addPoint(p[0],p[1]));
+  if(state.hyperCadIds.length!==state.points.length)
+    state.hyperCadIds=state.points.map(p=>cad.addPoint(p[0],p[1]));
   state.lines.forEach(s=>cad.addLine(s[0],s[1]));
   state.circles.forEach(s=>cad.addCircle(s[0],s[1]));
   const specs=[...state.constraints]; state.constraints=[];
@@ -108,6 +118,7 @@ function draw() {
     ctx.strokeStyle='#2563eb';ctx.lineWidth=4;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();
   });
   state.cadPoints.forEach((p,index)=>{
+    if(state.hyperCadIds.includes(index))return;
     ctx.beginPath();ctx.arc(p[0],p[1],6,0,Math.PI*2);ctx.fillStyle='#7c3aed';ctx.fill();
     ctx.strokeStyle=state.selectedCadPoints.includes(index)?'#ef4444':'white';ctx.lineWidth=2;ctx.stroke();
   });
@@ -150,12 +161,14 @@ canvas.addEventListener('pointerdown',event=>{
     if(!event.shiftKey){state.selectedCadPoints=[];state.selectedLines=[];state.selectedCircles=[]}
     if(state.drag?.kind==='point')state.selected=state.drag.index;
     if(state.drag?.kind==='cadPoint'&&!state.selectedCadPoints.includes(state.drag.index))state.selectedCadPoints.push(state.drag.index);
+    if(state.drag?.kind==='cadPoint'&&state.hyperCadIds.includes(state.drag.index))state.selected=state.hyperCadIds.indexOf(state.drag.index);
     if(state.drag?.kind==='line'&&!state.selectedLines.includes(state.drag.index))state.selectedLines.push(state.drag.index);
     if(state.drag?.kind==='circle'&&!state.selectedCircles.includes(state.drag.index))state.selectedCircles.push(state.drag.index);
     canvas.setPointerCapture(event.pointerId);draw();return;
   }
   if(state.tool==='pen'){
-    state.points.push(pos);state.smooth.push(true);sync();draw();return;
+    state.points.push(pos);state.smooth.push(true);state.hyperCadIds.push(addCadPoint(pos));
+    cad.solve();refreshCad();sync();draw();return;
   }
   if(!state.pending){state.pending=pos;return}
   if(state.tool==='line'){
@@ -171,7 +184,7 @@ canvas.addEventListener('pointermove',event=>{
   if(!state.drag)return;const pos=position(event);
   if(state.drag.kind==='point')state.points[state.drag.index]=pos;
   else if(state.drag.kind==='cadPoint'){
-    cad.dragPoint(state.drag.index,pos[0],pos[1]);refreshCad();draw();return;
+    cad.dragPoint(state.drag.index,pos[0],pos[1]);refreshCad();sync();draw();return;
   } else if(state.drag.kind==='handle') {
     const i=state.drag.index, h=solution.handles[i];
     const handles=state.manual[i]||[[h[0],h[1]],[h[2],h[3]]];handles[state.drag.side]=pos;
@@ -181,9 +194,10 @@ canvas.addEventListener('pointermove',event=>{
 });
 canvas.addEventListener('pointerup',()=>state.drag=null);
 canvas.addEventListener('dblclick',event=>{
-  const hit=pick(position(event));if(hit?.kind==='point'&&hit.index>0&&hit.index<state.points.length-1){
-    state.smooth[hit.index]=!state.smooth[hit.index];sync();draw();
-  }
+  const hit=pick(position(event));
+  const index=hit?.kind==='point'?hit.index:(hit?.kind==='cadPoint'?state.hyperCadIds.indexOf(hit.index):-1);
+  if(index>0&&index<state.points.length-1){state.smooth[index]=!state.smooth[index];sync();draw()}
+
 });
 
 document.querySelectorAll('.tool').forEach(button=>button.onclick=()=>{
@@ -198,7 +212,7 @@ document.querySelector('#reset-handles').onclick=()=>{
 };
 
 document.querySelector('#remove-constraint').onclick=()=>{
-  if(state.constraints.length){state.constraints.pop();cad.removeLastConstraint();refreshCad();draw()}
+  if(state.constraints.length){state.constraints.pop();cad.removeLastConstraint();refreshCad();sync();draw()}
 };
 document.querySelectorAll('[data-constraint]').forEach(button=>button.onclick=()=>{
   const type=button.dataset.constraint,p=state.selectedCadPoints,l=state.selectedLines,c=state.selectedCircles;
@@ -216,6 +230,7 @@ document.querySelectorAll('[data-constraint]').forEach(button=>button.onclick=()
   else if(type==='pointLineDistance'&&p.length===1&&l.length===1){const v=number('Point-line distance',50);if(v!==null)args=[p[0],l[0],v]}
   else if(type==='diameter'&&c.length===1){const v=number('Diameter',100);if(v!==null)args=[c[0],v]}
   else if((type==='equalRadius'||type==='concentric')&&c.length===2)args=[c[0],c[1]];
+  else if(type==='tangent'&&c.length===1&&l.length===1)args=[c[0],l[0]];
   if(!args){alert('Select the required point(s), line(s), or circle(s). Shift-click for multiple selection.');return}
   const result=applyCadConstraint({type,args});draw();
   if(result===1)alert('The solver did not converge; geometry was rolled back.');
@@ -232,7 +247,9 @@ function download(name,text,type){const a=document.createElement('a');a.href=URL
 document.querySelector('#export-svg').onclick=()=>download('adjacent.svg',svgText(),'image/svg+xml');
 document.querySelector('#save-project').onclick=()=>download('adjacent.json',JSON.stringify({...state,drag:null,pending:null},null,2),'application/json');
 document.querySelector('#open-project').onchange=async event=>{
-  const data=JSON.parse(await event.target.files[0].text());Object.assign(state,data,{drag:null,pending:null});rebuildCad();sync();draw();
+  const data=JSON.parse(await event.target.files[0].text());
+  if(!Array.isArray(data.hyperCadIds))data.hyperCadIds=[];
+  Object.assign(state,data,{drag:null,pending:null});rebuildCad();sync();draw();
 };
 
-refreshCad();sync();draw();
+ensureHyperCadPoints();refreshCad();sync();draw();

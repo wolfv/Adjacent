@@ -17,6 +17,10 @@ cmd = "emcmake cmake -S . -B build -GNinja -DCMAKE_BUILD_TYPE=Release -Dxtensor_
 cmd = "cmake --build build"
 depends-on = ["configure"]
 
+[tasks.test]
+cmd = "node tests/smoke.mjs"
+depends-on = ["build"]
+
 [tasks.serve]
 cmd = "python -m http.server 8000 -d ."
 depends-on = ["build"]

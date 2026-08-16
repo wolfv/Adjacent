@@ -8,4 +8,4 @@ pixi run serve
 # open http://localhost:8000
 ```
 
-Features in this branch include draggable G2 auto-splines, draggable manual hyperbezier handles, smooth/corner nodes, line and circle tools, project JSON, glyph metadata, and SVG export. CAD points, lines, circles, direct manipulation, DOF reporting, and sixteen geometric constraint operations are bound directly to `libadjacent` in WASM. Full browser-side OpenType compilation remains subsequent work.
+Features in this branch include draggable G2 auto-splines, draggable manual hyperbezier handles, smooth/corner nodes, line and circle tools, project JSON, glyph metadata, and SVG export. Hyperbezier anchors and ordinary CAD points share the same constraint sketch. CAD points, lines, circles, direct manipulation, DOF reporting, line/circle tangency, and sixteen other geometric constraint operations are bound directly to `libadjacent` in WASM. Full browser-side OpenType compilation remains subsequent work.

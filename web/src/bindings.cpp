@@ -14,6 +14,35 @@ using emscripten::val;
 
 namespace
 {
+class WebCircleLineTangentConstraint : public Constraint
+{
+public:
+    WebCircleLineTangentConstraint(const std::shared_ptr<CircleE>& circle,
+                                   const std::shared_ptr<LineE>& line)
+        : Constraint(CONSTRAINT_TYPE::Tangent), m_circle(circle), m_line(line)
+    {
+        const double dx = line->target().x->value() - line->source().x->value();
+        const double dy = line->target().y->value() - line->source().y->value();
+        const double qx = circle->center().x->value() - line->source().x->value();
+        const double qy = circle->center().y->value() - line->source().y->value();
+        m_side = dx * qy - dy * qx < 0.0 ? -1.0 : 1.0;
+        entities = { circle.get(), line.get() };
+    }
+    std::vector<ParamPtr> parameters() override { return {}; }
+    std::vector<ExprPtr> equations() override
+    {
+        const auto d = m_line->target().expr() - m_line->source().expr();
+        const auto q = m_circle->center().expr() - m_line->source().expr();
+        const auto area = d.x * q.y - d.y * q.x;
+        return { area - expr(m_side) * m_circle->radius()
+                            * sqrt(sqr(d.x) + sqr(d.y)) };
+    }
+private:
+    std::shared_ptr<CircleE> m_circle;
+    std::shared_ptr<LineE> m_line;
+    double m_side = 1.0;
+};
+
 class WebConstraintSketch
 {
 public:
@@ -133,6 +162,10 @@ public:
     {
         EntityPtr ca = circle(a), cb = circle(b);
         return add(std::make_shared<ConcentricConstraint>(ca, cb));
+    }
+    int tangent(unsigned c, unsigned l)
+    {
+        return add(std::make_shared<WebCircleLineTangentConstraint>(circle(c), line(l)));
     }
     int angle(unsigned a, unsigned b, double radians)
     {
@@ -326,6 +359,7 @@ EMSCRIPTEN_BINDINGS(adjacent_web)
         .function("diameter", &WebConstraintSketch::diameter)
         .function("equalRadius", &WebConstraintSketch::equal_radius)
         .function("concentric", &WebConstraintSketch::concentric)
+        .function("tangent", &WebConstraintSketch::tangent)
         .function("angle", &WebConstraintSketch::angle)
         .function("removeLastConstraint", &WebConstraintSketch::remove_last_constraint);
 

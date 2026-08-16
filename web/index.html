@@ -46,9 +46,10 @@
         <button data-constraint="diameter">Diameter</button>
         <button data-constraint="equalRadius">Equal radius</button>
         <button data-constraint="concentric">Concentric</button>
+        <button data-constraint="tangent">Line tangent to circle</button>
         <button id="remove-constraint">Remove last</button>
       </div>
-      <div class="constraint-status">Shift-click points, lines, or circles to multi-select. Constraints and dragging are solved by libadjacent in WASM.</div>
+      <div class="constraint-status">Hyperbezier anchors are solver points too. Shift-click points, lines, or circles to multi-select. For tangency, select one line and one circle, then click “Line tangent to circle”.</div>
     </aside>
     <section class="stage">
       <canvas id="canvas"></canvas>
