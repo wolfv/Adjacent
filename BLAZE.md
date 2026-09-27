@@ -27,6 +27,35 @@ Default tasks come from the backends:
 A task with the same name in `[package.tasks]` replaces the default.
 `default-tasks = false` in `[package.build.config]` turns the defaults off.
 
-The only manifest change is in `lib/pixi.toml`: `BUILD_TESTING` is now `ON`.
-Tests are cached actions in the same build graph, so they no longer need a
-separate Debug build tree.
+Manifest changes in this worktree:
+
+- `pixi.toml`: `preview` gains `pixi-build-blaze`.
+- `lib/pixi.toml`: `BUILD_TESTING` is now `ON`. Tests are cached actions in
+  the same build graph, so they no longer need a separate Debug build tree.
+
+## Changing the build: `[package.steps]`
+
+The backend's build steps are named `configure`, `compile`, `install` and
+`in-build-tests`. An entry in `[package.steps]` with one of those names
+replaces the step. Any other entry is a new step, placed with `required-by`.
+Steps are part of the package, so they change its build string.
+
+```toml
+# lib/pixi.toml: strict-warnings package build, keeping the backend's arguments
+[package.steps.configure]
+cmd = "{{ default.cmd }} -DADJACENT_STRICT_WARNINGS=ON"
+
+# a generated header, produced before configure (declares inputs/outputs)
+[package.steps.codegen]
+cmd = "python tools/gen.py --out generated/"
+inputs = ["tools/gen.py"]
+outputs = ["generated/**"]
+required-by = ["configure"]
+```
+
+`bpixi task explain libadjacent//configure` shows the default command, the
+override and where it came from. `bpixi run libadjacent//` lists everything
+and marks the steps that are overridden.
+
+`pixi run pkg//task` takes the build and host environments from `pixi.lock`
+where the package is locked. Otherwise blaze solves them, and says so.
