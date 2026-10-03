@@ -4,7 +4,7 @@ authors = ["Adjacent contributors"]
 description = "Development workspace for the Adjacent C++ solver and Python CAD tools"
 channels = ["https://prefix.dev/pixi-build-backends", "conda-forge"]
 platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
-preview = ["pixi-build"]
+preview = ["pixi-build", "pixi-build-blaze"]
 
 [workspace.dependencies]
 libadjacent = { path = "lib" }

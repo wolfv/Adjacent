@@ -17,7 +17,9 @@ version = "0.4.*"
 channels = ["https://prefix.dev/pixi-build-backends", "conda-forge"]
 
 [package.build.config]
-extra-args = ["-DBUILD_TESTING=OFF"]
+# With the blaze backend tests are part of the build graph: each CTest test is
+# its own cached action (`pixi run libadjacent//test`).
+extra-args = ["-DBUILD_TESTING=ON"]
 # Public header-only APIs (constraints and entities) are not all visible in the
 # library's Ninja depfiles, so explicitly include them in source-package hashing.
 extra-input-globs = ["include/**/*.hpp", "cmake/**/*", "tests/**/*", "LICENSES/**/*"]
